@@ -4,6 +4,67 @@ server_type = 'connect'
 server_url = 'https://appshare-dev.cancer.gov'
 client_version = '1.14.0'
 created_at = '2025-05-15T21:50:53Z'
-dismissed_at = ''
-type = 'unknown'
+dismissed_at = '2025-05-16T17:12:44Z'
+type = 'quarto-static'
 configuration_name = 'sec_etl-BD6A'
+id = '3440a2f4-79f9-45dd-a55d-06eecc56e4ad'
+dashboard_url = 'https://appshare-dev.cancer.gov/connect/#/apps/3440a2f4-79f9-45dd-a55d-06eecc56e4ad'
+direct_url = 'https://appshare-dev.cancer.gov/content/3440a2f4-79f9-45dd-a55d-06eecc56e4ad/'
+logs_url = 'https://appshare-dev.cancer.gov/connect/#/apps/3440a2f4-79f9-45dd-a55d-06eecc56e4ad/logs'
+deployed_at = '2025-05-16T16:58:05Z'
+bundle_id = '817'
+bundle_url = 'https://appshare-dev.cancer.gov/__api__/v1/content/3440a2f4-79f9-45dd-a55d-06eecc56e4ad/bundles/817/download'
+files = [
+  '.posit/publish/deployments/deployment-LNVV.toml',
+  '.posit/publish/sec_etl-BD6A.toml',
+  'api_etl_v2.py',
+  'etl.qmd',
+  'get_associations.py',
+  'nlp_pg/common_funcs.py',
+  'nlp_pg/create_performance_expression.py',
+  'nlp_pg/sec_poc_classifier.py',
+  'nlp_pg/sec_poc_expression_generator.py',
+  'nlp_pg/sec_poc_tokenizer.py',
+  'nlp_tokenizer.py',
+  'refresh_ncit_pg.py',
+  'requirements.txt'
+]
+requirements = [
+  '--only-binary=spacy',
+  'pandas>=2,<3',
+  'requests',
+  'sqlalchemy',
+  'psycopg2',
+  'wget',
+  'blis==0.7.8',
+  'spacy==3.7.5'
+]
+
+[configuration]
+'$schema' = 'https://cdn.posit.co/publisher/schemas/posit-publishing-schema-v3.json'
+type = 'quarto-static'
+entrypoint = 'etl.qmd'
+validate = true
+files = [
+  '/etl.qmd',
+  '/requirements.txt',
+  '/.posit/publish/sec_etl-BD6A.toml',
+  '/.posit/publish/deployments/deployment-LNVV.toml',
+  '/refresh_ncit_pg.py',
+  '/nlp_tokenizer.py',
+  '/nlp_pg',
+  '!/nlp_pg/nlp_schema.sql',
+  '/get_associations.py',
+  '/api_etl_v2.py'
+]
+title = 'sec_etl'
+secrets = ['CTS_V2_API_KEY', 'DB_HOST', 'DB_NAME', 'DB_PASS', 'DB_PORT', 'DB_USER']
+
+[configuration.python]
+version = '3.9.16'
+package_file = 'requirements.txt'
+package_manager = 'pip'
+
+[configuration.quarto]
+version = '1.7.31'
+engines = ['jupyter']

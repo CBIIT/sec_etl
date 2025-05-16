@@ -18,11 +18,12 @@ files = [
   '/api_etl_v2.py'
 ]
 title = 'sec_etl'
+secrets = ['CTS_V2_API_KEY', 'DB_HOST', 'DB_NAME', 'DB_PASS', 'DB_PORT', 'DB_USER']
 
 [python]
-version = "3.9.16"
-package_file = "requirements.txt"
-package_manager = "pip"
+version = '3.9.16'
+package_file = 'requirements.txt'
+package_manager = 'pip'
 
 [quarto]
 version = '1.7.31'
