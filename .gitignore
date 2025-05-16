@@ -1,1 +1,5 @@
 __pycache__
+etl_files/
+email-preview/
+*.html
+.output_metadata.json

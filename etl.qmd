@@ -1,0 +1,45 @@
+---
+title: "SEC POC ETL"
+format: email
+---
+
+::: {.email}
+
+::: {.subject}
+SEC POC ETL
+:::
+
+```{python}
+#| echo: false
+import datetime
+import time
+start=datetime.datetime.now()
+
+!python ./refresh_ncit_pg.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+!python ./nlp_tokenizer.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+!python ./api_etl_v2.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+!python ./get_associations.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+trial_count=!PGPASSWORD="$DB_PASS" psql --username="$DB_USER" --host="$DB_HOST" --port="$DB_PORT" --no-password sec -t -c "select count(*) from trials"
+
+trial_count=int(trial_count[0].strip())
+if trial_count > 3945:
+    print(f"Trial count after ETL {trial_count} > 3945, Good to run NLP")
+
+    !python ./nlp_pg/sec_poc_tokenizer.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+    time.sleep(1)
+    !python ./nlp_pg/sec_poc_classifier.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+    time.sleep(1)
+    !python ./nlp_pg/sec_poc_expression_generator.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+
+end=datetime.datetime.now()
+print(f"Elapsed time: {str(end-start).split('.')[0]}")
+```
+
+:::
