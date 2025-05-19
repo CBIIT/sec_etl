@@ -3,6 +3,18 @@ title: "SEC POC ETL"
 format: email
 ---
 
+```{python}
+#| echo: false
+#| label: Spacy download
+
+import spacy
+
+try:
+   spacy.load("en_core_web_sm") 
+except OSError:
+    !python -m spacy download en_core_web_sm
+```
+
 ::: {.email}
 
 ::: {.subject}
