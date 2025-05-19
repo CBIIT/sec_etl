@@ -1,3 +1,6 @@
 [submodule "sec_nlp"]
 	path = sec_nlp
 	url = https://github.com/CBIIT/sec_nlp
+[submodule "sec_poc"]
+	path = sec_poc
+	url = https://github.com/CBIIT/sec_poc
