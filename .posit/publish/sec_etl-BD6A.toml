@@ -12,10 +12,13 @@ files = [
   '/.posit/publish/deployments/deployment-LNVV.toml',
   '/refresh_ncit_pg.py',
   '/nlp_tokenizer.py',
-  '/nlp_pg',
-  '!/nlp_pg/nlp_schema.sql',
   '/get_associations.py',
-  '/api_etl_v2.py'
+  '/api_etl_v2.py',
+  '/common_funcs.py',
+  '/create_performance_expression.py',
+  '/sec_poc_classifier.py',
+  '/sec_poc_expression_generator.py',
+  '/sec_poc_tokenizer.py'
 ]
 title = 'sec_etl'
 secrets = ['CTS_V2_API_KEY', 'DB_HOST', 'DB_NAME', 'DB_PASS', 'DB_PORT', 'DB_USER']

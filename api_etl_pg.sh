@@ -23,11 +23,11 @@ run_py_script ./get_associations.py
 
 if [[ $(check_trials_count) -ge '3945' ]]; then
   echo "Trial count after ETL > 3945, Good to run NLP"
-  run_py_script ./nlp_pg/sec_poc_tokenizer.py
+  run_py_script ./sec_poc_tokenizer.py
   sleep 1
-  run_py_script ./nlp_pg/sec_poc_classifier.py
+  run_py_script ./sec_poc_classifier.py
   sleep 1
-  run_py_script ./nlp_pg/sec_poc_expression_generator.py
+  run_py_script ./sec_poc_expression_generator.py
 fi
 
 end_time=$(date +%s)
