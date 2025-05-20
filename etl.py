@@ -1,0 +1,67 @@
+# %% [markdown]
+# ---
+# title: "SEC POC ETL"
+# ---
+
+# %%
+#| echo: false
+#| label: Spacy download
+
+import spacy
+
+try:
+   spacy.load("en_core_web_sm")
+except OSError:
+    !python -m spacy download en_core_web_sm
+
+# %%
+#| echo: false
+#| label: refresh_ncit_pg.py
+import datetime
+import time
+
+MIN_EXP_TRIALS=3945
+
+start=datetime.datetime.now()
+!python ./refresh_ncit_pg.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+# %%
+#| echo: false
+#| label: nlp_tokenizer.py
+!python ./nlp_tokenizer.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+# %%
+#| echo: false
+#| label: api_etl_v2.py
+!python ./api_etl_v2.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+# %%
+#| echo: false
+#| label: get_association.py
+!python ./get_associations.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+# %%
+#| echo: false
+#| label: sec_poc_tokenizer.py
+trial_count=!PGPASSWORD="$DB_PASS" psql --username="$DB_USER" --host="$DB_HOST" --port="$DB_PORT" --no-password sec -t -c "select count(*) from trials"
+trial_count=int(trial_count[0].strip())
+if trial_count > MIN_EXP_TRIALS:
+    print(f"Trial count after ETL {trial_count} > {MIN_EXP_TRIALS}, Good to run NLP")
+    !python ./sec_poc_tokenizer.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+# %%
+#| echo: false
+#| label: sec_poc_classifier.py
+if trial_count > MIN_EXP_TRIALS:
+    time.sleep(1)
+    !python ./sec_poc_classifier.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+# %%
+#| echo: false
+#| label: sec_poc_expression_generator.py
+if trial_count > MIN_EXP_TRIALS:
+    time.sleep(1)
+    !python ./sec_poc_expression_generator.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
+
+end=datetime.datetime.now()
+print(f"Elapsed time: {str(end-start).split('.')[0]}")

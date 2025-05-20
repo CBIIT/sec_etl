@@ -3,10 +3,10 @@
 # https://github.com/posit-dev/publisher/blob/main/docs/configuration.md
 '$schema' = 'https://cdn.posit.co/publisher/schemas/posit-publishing-schema-v3.json'
 type = 'quarto-static'
-entrypoint = 'etl.qmd'
+entrypoint = 'etl.py'
 validate = true
 files = [
-  '/etl.qmd',
+  '/etl.py',
   '/requirements.txt',
   '/.posit/publish/sec_etl-BD6A.toml',
   '/.posit/publish/deployments/deployment-LNVV.toml',
