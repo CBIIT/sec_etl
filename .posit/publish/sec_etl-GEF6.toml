@@ -3,13 +3,13 @@
 # https://github.com/posit-dev/publisher/blob/main/docs/configuration.md
 '$schema' = 'https://cdn.posit.co/publisher/schemas/posit-publishing-schema-v3.json'
 type = 'quarto-static'
-entrypoint = 'etl.py'
+entrypoint = 'etl.qmd'
 validate = true
 files = [
-  '/etl.py',
+  '/etl.qmd',
   '/requirements.txt',
-  '/.posit/publish/sec_etl_py-MUL5.toml',
-  '/.posit/publish/deployments/deployment-E36R.toml',
+  '/.posit/publish/sec_etl-GEF6.toml',
+  '/.posit/publish/deployments/deployment-KF78.toml',
   '/refresh_ncit_pg.py',
   '/nlp_tokenizer.py',
   '/get_associations.py',
