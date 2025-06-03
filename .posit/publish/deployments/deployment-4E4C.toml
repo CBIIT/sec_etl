@@ -2,7 +2,7 @@
 '$schema' = 'https://cdn.posit.co/publisher/schemas/posit-publishing-record-schema-v3.json'
 server_type = 'connect'
 server_url = 'https://posit-connect-prod.cancer.gov'
-client_version = '1.14.0'
+client_version = '1.16.0'
 created_at = '2025-06-02T15:48:49Z'
 dismissed_at = ''
 type = 'quarto-static'
@@ -11,9 +11,9 @@ id = '67177a19-f8eb-479e-a7de-bb5d87010bc8'
 dashboard_url = 'https://posit-connect-prod.cancer.gov/connect/#/apps/67177a19-f8eb-479e-a7de-bb5d87010bc8'
 direct_url = 'https://posit-connect-prod.cancer.gov/content/67177a19-f8eb-479e-a7de-bb5d87010bc8/'
 logs_url = 'https://posit-connect-prod.cancer.gov/connect/#/apps/67177a19-f8eb-479e-a7de-bb5d87010bc8/logs'
-deployed_at = '2025-06-02T15:59:21Z'
-bundle_id = '15'
-bundle_url = 'https://posit-connect-prod.cancer.gov/__api__/v1/content/67177a19-f8eb-479e-a7de-bb5d87010bc8/bundles/15/download'
+deployed_at = '2025-06-03T14:33:40Z'
+bundle_id = '19'
+bundle_url = 'https://posit-connect-prod.cancer.gov/__api__/v1/content/67177a19-f8eb-479e-a7de-bb5d87010bc8/bundles/19/download'
 files = [
   '.posit/publish/deployments/deployment-4E4C.toml',
   '.posit/publish/sec_etl-7J7R.toml',
@@ -43,16 +43,11 @@ requirements = [
   'pandas>=2,<3',
   'requests',
   'sqlalchemy',
-  'psycopg2',
+  'psycopg2-binary',
   'wget',
   'blis==0.7.8',
   'spacy==3.7.5'
 ]
-
-[deployment_error]
-code = 'deployFailed'
-message = 'Cannot find compatible environment: no compatible environment because Quarto is disabled.'
-operation = ''
 
 [configuration]
 '$schema' = 'https://cdn.posit.co/publisher/schemas/posit-publishing-schema-v3.json'
