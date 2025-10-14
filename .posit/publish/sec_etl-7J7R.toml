@@ -38,5 +38,5 @@ package_file = 'requirements.txt'
 package_manager = 'pip'
 
 [quarto]
-version = '1.7.31'
+version = '1.4.557'
 engines = ['jupyter']

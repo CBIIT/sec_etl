@@ -5,16 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "pandas<3",
-    "psycopg2-binary<3",
-    "spacy<4",
-    "sqlalchemy<3",
-    "wget<4",
+    "blis==0.7.8",
+    "numpy<2",
+    "pandas>=2,<3",
+    "psycopg2-binary>=2.9.11",
+    "requests>=2.32.5",
+    "spacy==3.7.5",
+    "sqlalchemy>=2.0.44",
+    "wget>=3.2",
 ]
 
 [dependency-groups]
 dev = [
     "jupyter>=1.1.1",
     "pip>=25.2",
-    "posit-sdk>=0.6.0",
+    "posit-sdk>=0.12.0",
 ]
