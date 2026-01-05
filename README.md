@@ -67,4 +67,3 @@ To run the ETL locally:
 - [SEC POC README](sec_poc/README.md): Details on the proof-of-concept application and database setup.
 - [SEC NLP README](sec_nlp/README.md): Information on NLP integration and schema.
 - [Quarto Documentation](https://quarto.org/docs/): For details on authoring and running Quarto projects.
-- 
