@@ -2,6 +2,7 @@
 #    uv export --no-hashes --format requirements.txt --no-dev
 annotated-types==0.7.0
     # via pydantic
+beautifulsoup4==4.14.2
 blis==0.7.8
     # via
     #   sec-etl

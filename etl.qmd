@@ -5,10 +5,24 @@ format: email
 
 ```{python}
 #| echo: false
+#| label: Remove old email preview
+#| error: true
+import os
+import sys
+from os.path import exists
+try:
+    if exists('email-preview/index.html'):
+        os.remove('email-preview/index.html')
+except Exception:
+    print(f'Error removing email-preview/index.html: {str(e)}', file=sys.stderr, flush=True)
+```
+```{python}
+#| echo: false
 #| label: Spacy download
-
+#| error: true
+import os
 import spacy
-
+import sys
 try:
    spacy.load("en_core_web_sm") 
 except OSError:
@@ -24,6 +38,8 @@ SEC POC ETL
 ```{python}
 #| echo: false
 #| label: refresh_ncit_pg.py
+#| error: true
+#| eval: false
 import datetime
 import time
 
@@ -36,27 +52,36 @@ start=datetime.datetime.now()
 ```{python}
 #| echo: false
 #| label: nlp_tokenizer.py
+#| error: true
 !python ./nlp_tokenizer.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
 ```
 
 ```{python}
 #| echo: false
 #| label: api_etl_v2.py
+#| error: true
+#| eval: false
 !python ./api_etl_v2.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
 ```
 
 ```{python}
 #| echo: false
 #| label: get_association.py
+#| error: true
+#| eval: false
 !python ./get_associations.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
 ```
 
 ```{python}
 #| echo: false
 #| label: sec_poc_tokenizer.py
+#| error: true
+#| eval: false
 import psycopg2
 import os
-
+import sys
+dbd = {k:v for k, v in os.environ.items() if k.startswith("DB_")}
+print(dbd, file = sys.stderr, flush=True)
 conn = psycopg2.connect(dbname=os.environ["DB_NAME"], user=os.environ["DB_USER"], password=os.environ["DB_PASS"], host=os.environ["DB_HOST"], port=os.environ["DB_PORT"])
 cur = conn.cursor()
 cur.execute("select count(*) from trials")
@@ -72,6 +97,8 @@ if trial_count > MIN_EXP_TRIALS:
 ```{python}
 #| echo: false
 #| label: sec_poc_classifier.py
+#| error: true
+#| eval: false
 if trial_count > MIN_EXP_TRIALS:
     time.sleep(1)
     !python ./sec_poc_classifier.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
@@ -80,6 +107,8 @@ if trial_count > MIN_EXP_TRIALS:
 ```{python}
 #| echo: false
 #| label: sec_poc_expression_generator.py
+#| error: true
+#| eval: false
 if trial_count > MIN_EXP_TRIALS:
     time.sleep(1)
     !python ./sec_poc_expression_generator.py --user "$DB_USER" --host "$DB_HOST" --port "$DB_PORT" --dbname "$DB_NAME" --password "$DB_PASS"
