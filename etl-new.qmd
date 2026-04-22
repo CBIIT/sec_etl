@@ -1,0 +1,299 @@
+---
+title: "ETL Report"
+output-file: etl_report.html
+format:
+  html:
+    toc: false
+    number-sections: false
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{python}
+#| label: imports
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from pathlib import Path
+import html
+import io
+import os
+import runpy
+import subprocess
+import sys
+from typing import List, Optional, Tuple
+
+REPORT_RELATIVE_PATH = Path("etl-new.qmd")
+SKIP_DIRS = {".git", ".venv", "venv", "__pycache__", ".quarto"}
+```
+
+```{python}
+#| echo: false
+#| label: remove-old-email-preview
+#| error: true
+
+try:
+    if os.path.exists('email-preview/index.html'):
+        os.remove('email-preview/index.html')
+    if os.path.exists('./etl_output'):
+        files = [os.path.join('./etl_output', f) for f in os.listdir('./etl_output')]
+        for f in files:
+            os.remove(f)
+except Exception as e:
+    print(f'Error cleaning up previous outputs: {e}', file=sys.stderr, flush=True)
+```
+
+```{python}
+#| echo: false
+#| label: spacy-download
+#| error: true
+
+import spacy
+try:
+    spacy.load("en_core_web_sm")
+except OSError:
+    subprocess.run(
+        [sys.executable, "-m", "spacy", "download", "en_core_web_sm"],
+        check=True,
+    )
+```
+
+```{python}
+#| label: define-helpers
+
+def _find_workspace_root() -> Path:
+    configured_root = os.environ.get("ETL_REPORT_ROOT")
+    if configured_root:
+        return Path(configured_root).expanduser().resolve()
+
+    current = Path.cwd().resolve()
+    for candidate in [current, *current.parents]:
+        if (candidate / REPORT_RELATIVE_PATH).exists():
+            return candidate
+
+    return current
+
+
+ROOT_DIR = Path.cwd().resolve()
+OUTPUT_DIR = ROOT_DIR / "etl_output"
+
+
+@contextmanager
+def _temporary_cwd(path: Path):
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
+
+
+@contextmanager
+def _temporary_sys_path(path: Path):
+    path_str = str(path)
+    added = path_str not in sys.path
+    if added:
+        sys.path.insert(0, path_str)
+    try:
+        yield
+    finally:
+        if added and path_str in sys.path:
+            sys.path.remove(path_str)
+
+
+def _resolve_configured_path(env_var_name: str) -> Optional[Path]:
+    configured_value = os.environ.get(env_var_name)
+    if not configured_value:
+        return None
+
+    configured_path = Path(configured_value).expanduser()
+    if not configured_path.is_absolute():
+        configured_path = ROOT_DIR / configured_path
+
+    resolved_path = configured_path.resolve()
+    return resolved_path if resolved_path.exists() else None
+
+
+def _locate_script(script_name: str) -> Optional[Path]:
+    configured = _resolve_configured_path(script_name.replace(".py", "").upper() + "_PATH")
+    if configured is not None:
+        return configured
+
+    direct = ROOT_DIR / script_name
+    if direct.exists():
+        return direct
+
+    for path in ROOT_DIR.rglob(script_name):
+        if any(part in SKIP_DIRS for part in path.parts):
+            continue
+        return path
+    return None
+
+
+def _run_script(script_name: str, *args, **kwargs) -> Tuple[bool, str]:
+    script_path = _locate_script(script_name)
+    if script_path is None:
+        return False, f"{script_name} not found"
+
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+
+    try:
+        sys.argv = [str(script_path)]
+        for k, v in kwargs.items():
+            sys.argv.extend([str(k), str(v)])
+        with _temporary_cwd(ROOT_DIR), _temporary_sys_path(ROOT_DIR), _temporary_sys_path(script_path.parent):
+            with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+                namespace = runpy.run_path(str(script_path), run_name="__main__")
+    except SystemExit as exc:
+        exit_code = exc.code
+        if exit_code in (None, 0):
+            namespace = {}
+        else:
+            return False, f"{script_name} exited with code {exit_code}"
+    except Exception as exc:
+        detail = stderr_buffer.getvalue().strip() or stdout_buffer.getvalue().strip()
+        if detail:
+            return False, f"{script_name} failed: {exc} | output: {detail}"
+        return False, f"{script_name} failed: {exc}"
+
+    success_value = namespace.get("success")
+    if success_value is False:
+        return False, f"{script_name} reported success=False"
+    if success_value is True:
+        return True, f"{script_name} reported success=True"
+    return True, f"{script_name} completed without success=False"
+
+
+def _read_log(file_name) -> List[str]:
+    file_path = Path(file_name)
+    if not file_path.exists():
+        return [f"{file_name} not found"]
+    return file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+
+
+def _render_log_section(label: str, lines: List[str]) -> str:
+    if lines:
+        joined = "<BR>&nbsp;&nbsp;" + "<BR>&nbsp;&nbsp;\n".join(html.escape(line) for line in lines)
+    else:
+        joined = "<BR>&nbsp;&nbsp;(no output)"
+
+    return (
+        f"<h2>{html.escape(label)}</h2>"
+        f"<div>{joined}</div>"
+    )
+
+
+scripts = [
+    "refresh_ncit_pg.py",
+    "nlp_tokenizer.py",
+    "api_etl_v2.py",
+    "get_associations.py",
+    "sec_poc_tokenizer.py",
+    "sec_poc_classifier.py",
+    "sec_poc_expression_generator.py",
+]
+
+kwargs = {
+    "--user": os.environ.get("DB_USER", ""),
+    "--host": os.environ.get("DB_HOST", ""),
+    "--port": os.environ.get("DB_PORT", ""),
+    "--dbname": os.environ.get("DB_NAME", ""),
+    "--password": os.environ.get("DB_PASS", ""),
+}
+
+oks, statuses = [], []
+```
+
+```{python}
+#| label: run-refresh_ncit_pg
+#| error: true
+_script = "refresh_ncit_pg.py"
+_ok, _status = _run_script(_script, **kwargs)
+oks.append(_ok)
+statuses.append(_status)
+```
+
+```{python}
+#| label: run-nlp_tokenizer
+#| error: true
+_script = "nlp_tokenizer.py"
+_ok, _status = _run_script(_script, **kwargs)
+oks.append(_ok)
+statuses.append(_status)
+```
+
+```{python}
+#| label: run-api_etl_v2
+#| error: true
+_script = "api_etl_v2.py"
+_ok, _status = _run_script(_script, **kwargs)
+oks.append(_ok)
+statuses.append(_status)
+```
+
+```{python}
+#| label: run-get_associations
+#| error: true
+_script = "get_associations.py"
+_ok, _status = _run_script(_script, **kwargs)
+oks.append(_ok)
+statuses.append(_status)
+```
+
+```{python}
+#| label: run-sec_poc_tokenizer
+#| error: true
+_script = "sec_poc_tokenizer.py"
+_ok, _status = _run_script(_script, **kwargs)
+oks.append(_ok)
+statuses.append(_status)
+```
+
+```{python}
+#| label: run-sec_poc_classifier
+#| error: true
+_script = "sec_poc_classifier.py"
+_ok, _status = _run_script(_script, **kwargs)
+oks.append(_ok)
+statuses.append(_status)
+```
+
+```{python}
+#| label: run-sec_poc_expression_generator
+#| error: true
+_script = "sec_poc_expression_generator.py"
+_ok, _status = _run_script(_script, **kwargs)
+oks.append(_ok)
+statuses.append(_status)
+```
+
+```{python}
+#| output: asis
+#| label: render-report
+
+ok = all(oks)
+report_title = "ETL PASSED" if ok else "ETL FAILED"
+
+od = {}
+for script in scripts:
+    name = script.removesuffix('.py')
+    txt_file = Path('./etl_output') / (name + '.txt')
+    if txt_file.exists():
+        lines = _read_log(txt_file)
+    else:
+        lines = [f'OUTPUT FILE NOT FOUND: {txt_file}']
+    od[name] = lines
+
+print(f"<h1>{report_title}</h1>")
+
+if not ok:
+    for status, script in zip(statuses, scripts):
+        print(
+            f"<p>&nbsp;&nbsp;{html.escape(script.removesuffix('.py') + ': ' + status)}<BR></p>"
+        )
+
+for name, lines in od.items():
+    print(_render_log_section(name + ':', lines))
+```
