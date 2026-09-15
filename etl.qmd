@@ -198,6 +198,43 @@ kwargs = {
     "--password": os.environ.get("DB_PASS", ""),
 }
 
+# Minimum number of trials that must be present after the API load before the
+# three NLP steps may run. It guards against rebuilding the NLP tables from a
+# truncated or failed trials load: if api_etl_v2 brings back too few trials,
+# the previous NLP output is left in place rather than replaced with bad data.
+#
+# 3945 is the value that has been live in production (hardcoded there); it is
+# read from the environment here so each tier can set its own floor without
+# editing this document. A local database restored from a subset will sit below
+# the production floor, which is why this needs to be overridable.
+MIN_EXP_TRIALS = int(os.environ.get("MIN_EXP_TRIALS", "3945"))
+
+
+def _trial_count() -> Optional[int]:
+    """Row count of `trials`, or None if it cannot be read."""
+    import psycopg2
+
+    try:
+        connection = psycopg2.connect(
+            dbname=os.environ["DB_NAME"],
+            user=os.environ["DB_USER"],
+            password=os.environ["DB_PASS"],
+            host=os.environ["DB_HOST"],
+            port=os.environ["DB_PORT"],
+        )
+    except Exception:
+        return None
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("select count(*) from trials")
+            return cursor.fetchone()[0]
+    except Exception:
+        return None
+    finally:
+        connection.close()
+
+
 oks, statuses = [], []
 ```
 
@@ -244,10 +281,40 @@ statuses.append(_status)
 ```
 
 ```{python}
+#| label: check-trial-count
+#| error: true
+# Gate the NLP steps on the trial count, matching production. The count is
+# taken here -- after api_etl_v2 has loaded trials -- and deliberately does NOT
+# append to oks/statuses, which stay one entry per script so the report can zip
+# them against `scripts`.
+trial_count = _trial_count()
+
+if trial_count is None:
+    run_nlp = False
+    nlp_skip_ok = False          # unreadable DB is a failure, not a clean skip
+    gate_reason = "could not read the trial count"
+elif trial_count > MIN_EXP_TRIALS:
+    run_nlp = True
+    nlp_skip_ok = True
+    gate_reason = f"trial count {trial_count} > {MIN_EXP_TRIALS}, good to run NLP"
+else:
+    run_nlp = False
+    nlp_skip_ok = True           # working as designed: too few trials loaded
+    gate_reason = f"trial count {trial_count} <= MIN_EXP_TRIALS ({MIN_EXP_TRIALS})"
+
+
+def _run_nlp_step(script_name):
+    """Run an NLP step, or record why it was skipped."""
+    if run_nlp:
+        return _run_script(script_name, **kwargs)
+    return nlp_skip_ok, f"{script_name} skipped: {gate_reason}"
+```
+
+```{python}
 #| label: run-sec_poc_tokenizer
 #| error: true
 _script = "sec_poc_tokenizer.py"
-_ok, _status = _run_script(_script, **kwargs)
+_ok, _status = _run_nlp_step(_script)
 oks.append(_ok)
 statuses.append(_status)
 ```
@@ -256,7 +323,7 @@ statuses.append(_status)
 #| label: run-sec_poc_classifier
 #| error: true
 _script = "sec_poc_classifier.py"
-_ok, _status = _run_script(_script, **kwargs)
+_ok, _status = _run_nlp_step(_script)
 oks.append(_ok)
 statuses.append(_status)
 ```
@@ -265,7 +332,7 @@ statuses.append(_status)
 #| label: run-sec_poc_expression_generator
 #| error: true
 _script = "sec_poc_expression_generator.py"
-_ok, _status = _run_script(_script, **kwargs)
+_ok, _status = _run_nlp_step(_script)
 oks.append(_ok)
 statuses.append(_status)
 ```
@@ -288,6 +355,11 @@ for script in scripts:
     od[name] = lines
 
 print(f"<h1>{report_title}</h1>")
+
+# Always report the NLP gate. A skip is not a failure, so without this line a
+# run where the NLP steps never executed would look identical to a full run.
+_gate_label = "NLP steps ran" if run_nlp else "NLP steps SKIPPED"
+print(f"<p><b>{html.escape(_gate_label)}</b>: {html.escape(gate_reason)}</p>")
 
 if not ok:
     for status, script in zip(statuses, scripts):
