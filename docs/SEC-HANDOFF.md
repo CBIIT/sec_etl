@@ -194,7 +194,7 @@ The `files` list in `sec_etl-7J7R.toml` includes the entrypoint, `requirements.t
 `.posit` files, **and both the symlinks and their real targets**:
 
 ```
-/etl.qmd, /requirements.txt,
+/etl.qmd, /etl_processor.py, /requirements.txt,
 /refresh_ncit_pg.py, /nlp_tokenizer.py, /get_associations.py, /api_etl_v2.py,
 /common_funcs.py, /create_performance_expression.py,
 /sec_poc_classifier.py, /sec_poc_expression_generator.py, /sec_poc_tokenizer.py,
@@ -203,11 +203,16 @@ The `files` list in `sec_etl-7J7R.toml` includes the entrypoint, `requirements.t
           sec_poc_expression_generator,sec_poc_tokenizer}.py
 ```
 
-> **Note — `etl.qmd` vs `etl-new.qmd`.** The deployed entrypoint is **`etl.qmd`**.
-> A newer `etl-new.qmd` exists in the repo (refactored report that renders the ETL logs into
-> `email-preview/index.html` via `format: email`) but it is **not referenced by any Publisher
-> config** and is therefore not deployed. If the new report is meant to replace the old one,
-> the entrypoint and `files` list in `sec_etl-7J7R.toml` must be updated.
+> **Note — `etl_processor.py` is required.** Every ETL script now does
+> `from etl_processor import ...`. The module was missing from this list, which would have made
+> the bundle fail at import on the first step; it is listed now. The deployed bundle 2294
+> predates the refactor and does not contain it — harmless there, fatal for anything newer.
+
+> **Note — `etl.qmd` vs `etl-orig.qmd`.** The entrypoint is **`etl.qmd`**, which is now the
+> instrumented report (in-process step execution, `success` flag, rendered logs, ETL PASSED /
+> ETL FAILED). The previous document is preserved verbatim as **`etl-orig.qmd`**, which is
+> intentionally *not* in the `files` list, so it is neither bundled nor rendered on Connect.
+> Because both Publisher configs already pointed at `etl.qmd`, the swap needed no config change.
 
 ### 4.4 sec_admin — `localdb/users.sqlite` ships with every deploy
 
@@ -386,7 +391,41 @@ the PROD connection (VPN required).
   `DB_*` (while taking `USERS_DB_PASS` from the prod set for shinymanager).
 
 Variables: `DB_NAME`, `DB_SCHEMA`, `DB_USER`, `DB_PASS`, `DB_HOST`, `DB_HOST_FOR_R`, `DB_PORT`,
-`USERS_DB_PASS`, `CTS_V2_API_KEY`, `UMLS_API_KEY`, `BING_MAPS_API_KEY`.
+`USERS_DB_PASS`, `CTS_V2_API_KEY`, `UMLS_API_KEY`, `BING_MAPS_API_KEY`, `MIN_EXP_TRIALS`.
+
+#### `MIN_EXP_TRIALS` — the NLP safety gate
+
+`etl.qmd` counts the rows in `trials` **after** `api_etl_v2.py` has loaded them, and runs the
+three NLP steps (`sec_poc_tokenizer`, `sec_poc_classifier`, `sec_poc_expression_generator`) only
+if that count is **greater than** `MIN_EXP_TRIALS`:
+
+```python
+MIN_EXP_TRIALS = int(os.environ.get("MIN_EXP_TRIALS", "3945"))
+```
+
+The point is to avoid rebuilding the NLP tables from a truncated or failed trials load: if the
+CTS API returns too few trials, the previous NLP output is left in place rather than replaced
+with bad data.
+
+| Tier | Value | Why |
+|---|---|---|
+| **Prod** | 3945 (the code default — **nothing to configure**) | the value hardcoded in the deployed report |
+| **Local** | `MIN_EXP_TRIALS=0` in `~/.sec/local.env` | a local DB holds ~3,904 trials, *below* the prod floor, so every local run would otherwise skip all three NLP steps |
+
+Behaviour in the report:
+
+- count above the floor → NLP steps run
+- count at or below it → steps skipped, run still **passes** (the guard working as intended)
+- count cannot be read at all → run **fails**, rather than silently skipping
+
+Either way the report prints which happened; a skip is never silent. To change the prod floor
+without redeploying, set `MIN_EXP_TRIALS` as a content environment variable in the Connect
+dashboard (Vars pane). It is deliberately *not* in the publish config's `secrets = [...]`: it is
+not a secret, and listing it there would make prod require it instead of falling back to 3945.
+
+> Note `~/.sec` lives outside every repo, so these files are per-machine and must be recreated
+> on a new laptop. `MIN_EXP_TRIALS=0` is the one addition a new developer is most likely to miss,
+> because without it a local ETL run looks like it silently did half the work.
 
 ### 6.2 Databases
 
@@ -449,8 +488,17 @@ Yields 34 tables + 4 views in local `public`. Then run the ETL to populate.
 cd ~/p/sec/sec_etl
 set -a; . ~/.sec/local.env; set +a
 export QUARTO_PYTHON=~/p/sec/venvs/3.11.5/bin/python PGGSSENCMODE=disable
-quarto render etl.qmd     # or etl-new.qmd for the newer report
+quarto render etl.qmd
 ```
+
+`etl.qmd` is the instrumented report: it runs each step in-process, reads back the step's
+`success` flag, and renders `etl_output/*.txt` into the email, so the run opens with **ETL
+PASSED** or **ETL FAILED** and names the step that failed. The previous document is kept
+verbatim as `etl-orig.qmd` (it shells out with `!python`, which cannot see a step's exit status —
+a failed step was reported as a successful one). `etl-orig.qmd` is **not** in the publish
+config's bundled files, so it is never deployed or rendered on Connect.
+
+Make sure `MIN_EXP_TRIALS=0` is set for local runs (§6.1) or the three NLP steps will be skipped.
 
 A full run takes roughly **1–1.5 hours** (NCIT thesaurus load + ~6.4M-row transitive closure +
 ~3,900 trials + spaCy NLP + expression generation). The `sec_poc_expression_generator` ontology
@@ -467,8 +515,17 @@ pass is the dominant cost (~50 min) and is the first place to optimize.
   never ported over.
 - **ETL dashboard visibility:** the sec_etl Connect dashboard historically showed only a
   spinner with no stdout. `etl_processor.py` now writes each step as a flushed line to
-  `etl_output/<script>.txt`, and the newer `etl-new.qmd` renders those logs into the email —
-  but see §4.3, that report is not yet the deployed entrypoint.
+  `etl_output/<script>.txt`, and `etl.qmd` renders those logs into the email. This is now the
+  deployed entrypoint name, but **the running deployment predates it** — see the next bullet.
+- **The deployed bundle is well behind `main`.** Prod is serving bundle **2294**
+  (deployed 2026‑01‑27), whose `etl.qmd` is byte-identical to commit `f7e25cf` of 2025‑06‑03.
+  Its ETL scripts contain no `etl_processor` import at all — they are the pre-refactor
+  procedural versions. So the next deploy is a ~15-month jump, not an increment. Two things
+  that must be true before publishing:
+  1. `etl_processor.py` must be in the publish config's `files` list. It was missing (every
+     script now imports it, so the bundle would fail at import); fixed, but verify it survives
+     any Publisher-driven rewrite of the config.
+  2. `MIN_EXP_TRIALS` keeps its 3945 default, which is what prod runs today (§6.1).
 - **`process_transitive_closure`** in `refresh_ncit_pg.py` has previously been left uncalled,
   which silently leaves codes out of `ncit_tc_with_path` (e.g. `C225003`). Verify it runs after
   any refactor. The closure needs a well-placed index to perform.
