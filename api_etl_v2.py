@@ -1081,6 +1081,6 @@ if __name__ == '__main__':
     bootstrap_processor = ApiEtlProcessor(args=None, python_file=__file__)
     parser = bootstrap_processor.build_parser()
     parsed_args = parser.parse_args()
-    # Module-level `success` is what etl-new.qmd reads back out of the module
+    # Module-level `success` is what etl.qmd reads back out of the module
     # namespace (runpy.run_path) to decide whether this step passed.
     success = ApiEtlProcessor(args=parsed_args, python_file=__file__).process()

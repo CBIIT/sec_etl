@@ -1,7 +1,16 @@
 __pycache__
 etl_files/
 email-preview/
+
+# Local environment files. These hold DB credentials and live API keys
+# (CTS_V2_API_KEY, UMLS_API_KEY) and must never be committed -- this is a
+# public repository.
+*.env
+.env
+
 *.html
+# Committed on purpose: a rendered example of the ETL report for a failed run.
+!docs/failed-email-example.html
 .output_metadata.json
 http_cache.sqlite
 

@@ -44,7 +44,7 @@ class EtlProcessor:
         self.name = name
         self._args = args
         # Tracks whether this run hit a fatal error. process() returns it and
-        # each script assigns it to a module-level `success`, which etl-new.qmd
+        # each script assigns it to a module-level `success`, which etl.qmd
         # reads out of the module namespace to decide pass/fail. Without it a
         # caught-and-logged exception would be reported as a successful step.
         self._succeeded = True
@@ -77,7 +77,7 @@ class EtlProcessor:
         Record a fatal failure: mark the run failed and log it like pre().
 
         Use this instead of pre() in a top-level `except` so the failure
-        reaches etl-new.qmd. pre() alone only writes to the log, which is how
+        reaches etl.qmd. pre() alone only writes to the log, which is how
         a failed step could previously be reported as green.
         """
         self._succeeded = False
