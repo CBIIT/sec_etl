@@ -414,6 +414,23 @@ docker run -d --name sec_pg5433 \
 
 Use `PGGSSENCMODE=disable` for psql clients to avoid a GSSAPI negotiation error.
 
+**Creating the roles and database (run once, inside the container).** The bootstrap lives in
+`sec_db_setup.sh`. It creates the two login users the project expects — `sec` (the application
+user, per `~/.sec/local.env`) and **`sec_read`** (needed because `get_associations.py` issues
+`GRANT SELECT ON associations TO sec_read`, which exists in prod but not in a fresh local DB):
+
+```bash
+psql postgres -c "create user sec_read with password 'sec_read'"
+psql postgres -c "create user sec with password 'sec'"
+psql postgres -c "create database sec"
+psql postgres -c "grant all privileges on database sec to sec"
+```
+
+> Two notes: the script is currently kept outside the repos (in a personal `~/bin`), so it
+> should be committed into the repo as part of this handoff. Also, its last line reads
+> `psql secapp -c ...`, which targets a **database** named `secapp` — no such database exists
+> (`secapp` is the *schema* name in prod), so that line fails; use `psql postgres` as shown above.
+
 **Rebuilding the local schema from prod (structure only, read-only on prod):**
 
 ```bash
@@ -424,9 +441,7 @@ sed -e 's/secapp\./public./g' -e '/^CREATE SCHEMA secapp;/d' prod_secapp_ddl.sql
   docker exec -i -e PGPASSWORD=sec sec_pg5433 psql -U sec -d sec -v ON_ERROR_STOP=1
 ```
 
-Yields 34 tables + 4 views in local `public`. Then run the ETL to populate. The local DB also
-needs a `sec_read` role (`CREATE ROLE sec_read;`) — `get_associations.py` issues
-`GRANT SELECT ON associations TO sec_read`, which exists in prod but not by default locally.
+Yields 34 tables + 4 views in local `public`. Then run the ETL to populate.
 
 ### 6.3 Running the ETL locally
 

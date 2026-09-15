@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"> <!-- utf-8 works for most cases -->
+<meta name="viewport" content="width=device-width"> <!-- Forcing initial-scale shouldn't be necessary -->
+<meta http-equiv="X-UA-Compatible" content="IE=edge"> <!-- Use the latest (edge) version of IE rendering engine -->
+<meta name="x-apple-disable-message-reformatting">  <!-- Disable auto-scale in iOS 10 Mail entirely -->
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no"> <!-- Tell iOS not to automatically link certain text strings. -->
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<!-- What it does: Makes background images in 72ppi Outlook render at correct size. -->
+<!--[if gte mso 9]>
+<xml>
+<o:OfficeDocumentSettings>
+<o:AllowPNG/>
+<o:PixelsPerInch>96</o:PixelsPerInch>
+</o:OfficeDocumentSettings>
+</xml>
+<![endif]-->
+<style>
+body {
+font-family: Helvetica, sans-serif;
+font-size: 14px;
+}
+.content {
+background-color: white;
+}
+.content .message-block {
+margin-bottom: 24px;
+}
+.header .message-block, .footer message-block {
+margin-bottom: 12px;
+}
+img {
+max-width: 100%;
+}
+@media only screen and (max-width: 767px) {
+.container {
+width: 100%;
+}
+.articles, .articles tr, .articles td {
+display: block;
+width: 100%;
+}
+.article {
+margin-bottom: 24px;
+}
+}
+</style>
+</head>
+<div style="text-align: center; background-color: #fcfcfc; padding-top: 12px; font-size: large;"><span style="margin-left: 25px"><strong><span style="font-variant: small-caps;">subject: </span></strong>SEC POC ETL</span><hr /></div>
+<body style="background-color:#f6f6f6;font-family:Helvetica, sans-serif;color:#222;margin:0;padding:0;">
+<table width="85%" align="center" class="container" style="max-width:1000px;">
+<tr>
+<td style="padding:24px;">
+<div class="header" style="font-family:Helvetica, sans-serif;color:#999999;font-size:12px;font-weight:normal;margin:0 0 24px 0;text-align:center;">
+</div>
+<table width="100%" class="content" style="background-color:white;">
+<tr>
+<td style="padding:12px;"><div class="email">
+<div id="render-report" class="cell" data-execution_count="12">
+<h1>
+ETL FAILED
+</h1>
+<p>
+  refresh_ncit_pg: refresh_ncit_pg.py failed: invalid port number:
+"99999" <BR>
+</p>
+<p>
+  nlp_tokenizer: nlp_tokenizer.py reported success=False<BR>
+</p>
+<p>
+  api_etl_v2: api_etl_v2.py reported success=False<BR>
+</p>
+<p>
+  get_associations: get_associations.py reported success=False<BR>
+</p>
+<p>
+  sec_poc_tokenizer: sec_poc_tokenizer.py reported success=False<BR>
+</p>
+<p>
+  sec_poc_classifier: sec_poc_classifier.py reported success=False<BR>
+</p>
+<p>
+  sec_poc_expression_generator: sec_poc_expression_generator.py reported
+success=False<BR>
+</p>
+<h2>
+refresh_ncit_pg:
+</h2>
+<div>
+<BR>  process STARTED 2026-09-15 16:01:10.201<BR>   ERROR: process
+Traceback (most recent call last):<BR>   File
+"/Users/marianom2/p/sec/sec_etl/etl_processor.py", line 31, in
+wrapper<BR>   result = func(processor, *args, **kwargs)<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>   File
+"/Users/marianom2/p/sec/sec_etl/refresh_ncit_pg.py", line 250, in
+process<BR>   con = psycopg2.connect(database=self.args.dbname,
+user=self.args.user, host=self.args.host, port=self.args.port,<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>  
+File
+"/Users/marianom2/p/sec/venvs/3.11.5/lib/python3.11/site-packages/psycopg2/<strong>init</strong>.py",
+line 122, in connect<BR>   conn = _connect(dsn,
+connection_factory=connection_factory, **kwasync)<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>  
+psycopg2.OperationalError: invalid port number: "99999"<BR>   <BR>  
+<BR>   process COMPLETED 2026-09-15 16:01:10.208
+</div>
+<h2>
+nlp_tokenizer:
+</h2>
+<div>
+<BR>  process STARTED 2026-09-15 16:01:10.221<BR>   3.7.5<BR>  
+4.0<BR>   ERROR: NLP Tokenizer FAILED: invalid port number:
+"99999"<BR>   Traceback (most recent call last):<BR>   File
+"/Users/marianom2/p/sec/sec_etl/nlp_tokenizer.py", line 114, in
+process<BR>   con = psycopg2.connect(<BR>   ^^^^^^^^^^^^^^^^^<BR>   File
+"/Users/marianom2/p/sec/venvs/3.11.5/lib/python3.11/site-packages/psycopg2/<strong>init</strong>.py",
+line 122, in connect<BR>   conn = _connect(dsn,
+connection_factory=connection_factory, **kwasync)<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>  
+psycopg2.OperationalError: invalid port number: "99999"<BR>   <BR>  
+<BR>   process COMPLETED 2026-09-15 16:01:10.223
+</div>
+<h2>
+api_etl_v2:
+</h2>
+<div>
+<BR>  process STARTED 2026-09-15 16:01:10.246<BR>   ERROR: API ETL
+FAILED: invalid port number: "99999"<BR>   Traceback (most recent call
+last):<BR>   File "/Users/marianom2/p/sec/sec_etl/api_etl_v2.py", line
+1052, in process<BR>   con = psycopg2.connect(<BR>  
+^^^^^^^^^^^^^^^^^<BR>   File
+"/Users/marianom2/p/sec/venvs/3.11.5/lib/python3.11/site-packages/psycopg2/<strong>init</strong>.py",
+line 122, in connect<BR>   conn = _connect(dsn,
+connection_factory=connection_factory, **kwasync)<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>  
+psycopg2.OperationalError: invalid port number: "99999"<BR>   <BR>  
+<BR>   process COMPLETED 2026-09-15 16:01:10.248
+</div>
+<h2>
+get_associations:
+</h2>
+<div>
+<BR>  process STARTED 2026-09-15 16:01:10.261<BR>   ERROR: GET
+ASSOCIATIONS ETL FAILED: invalid port number: "99999"<BR>   Traceback
+(most recent call last):<BR>   File
+"/Users/marianom2/p/sec/sec_etl/get_associations.py", line 130, in
+process<BR>   con = psycopg2.connect(<BR>   ^^^^^^^^^^^^^^^^^<BR>   File
+"/Users/marianom2/p/sec/venvs/3.11.5/lib/python3.11/site-packages/psycopg2/<strong>init</strong>.py",
+line 122, in connect<BR>   conn = _connect(dsn,
+connection_factory=connection_factory, **kwasync)<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>  
+psycopg2.OperationalError: invalid port number: "99999"<BR>   <BR>  
+<BR>   process COMPLETED 2026-09-15 16:01:10.265
+</div>
+<h2>
+sec_poc_tokenizer:
+</h2>
+<div>
+<BR>  process STARTED 2026-09-15 16:01:10.279<BR>   ERROR: TOKENIZER ETL
+FAILED: invalid port number: "99999"<BR>   Traceback (most recent call
+last):<BR>   File "/Users/marianom2/p/sec/sec_etl/sec_poc_tokenizer.py",
+line 243, in process<BR>   con = psycopg2.connect(<BR>  
+^^^^^^^^^^^^^^^^^<BR>   File
+"/Users/marianom2/p/sec/venvs/3.11.5/lib/python3.11/site-packages/psycopg2/<strong>init</strong>.py",
+line 122, in connect<BR>   conn = _connect(dsn,
+connection_factory=connection_factory, **kwasync)<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>  
+psycopg2.OperationalError: invalid port number: "99999"<BR>   <BR>  
+<BR>   process COMPLETED 2026-09-15 16:01:10.280
+</div>
+<h2>
+sec_poc_classifier:
+</h2>
+<div>
+<BR>  process STARTED 2026-09-15 16:01:10.292<BR>   ERROR: CLASSIFIER
+ETL FAILED: invalid port number: "99999"<BR>   Traceback (most recent
+call last):<BR>   File
+"/Users/marianom2/p/sec/sec_etl/sec_poc_classifier.py", line 189, in
+process<BR>   con = psycopg2.connect(<BR>   ^^^^^^^^^^^^^^^^^<BR>   File
+"/Users/marianom2/p/sec/venvs/3.11.5/lib/python3.11/site-packages/psycopg2/<strong>init</strong>.py",
+line 122, in connect<BR>   conn = _connect(dsn,
+connection_factory=connection_factory, **kwasync)<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>  
+psycopg2.OperationalError: invalid port number: "99999"<BR>   <BR>  
+<BR>   process COMPLETED 2026-09-15 16:01:10.294
+</div>
+<h2>
+sec_poc_expression_generator:
+</h2>
+<div>
+<BR>  process STARTED 2026-09-15 16:01:10.331<BR>   ERROR: EXPRESSION
+GENERATOR ETL FAILED: invalid port number: "99999"<BR>   Traceback (most
+recent call last):<BR>   File
+"/Users/marianom2/p/sec/sec_etl/sec_poc_expression_generator.py", line
+776, in process<BR>   con = psycopg2.connect(<BR>  
+^^^^^^^^^^^^^^^^^<BR>   File
+"/Users/marianom2/p/sec/venvs/3.11.5/lib/python3.11/site-packages/psycopg2/<strong>init</strong>.py",
+line 122, in connect<BR>   conn = _connect(dsn,
+connection_factory=connection_factory, **kwasync)<BR>  
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>  
+psycopg2.OperationalError: invalid port number: "99999"<BR>   <BR>  
+<BR>   process COMPLETED 2026-09-15 16:01:10.332
+</div>
+</div>
+</div></td></tr>
+</table>
+<div class="footer" style="font-family:Helvetica, sans-serif;color:#999999;font-size:12px;font-weight:normal;margin:24px 0 0 0;">
+<p>This message was generated on 2026-09-15 16:01:12.</p>
+
+<p>If HTML documents are attached, they may not render correctly when viewed in some email clients. For a better experience, download HTML documents to disk before opening in a web browser.</p>
+</div>
+</td>
+</tr>
+</table>
+</body>
+</html>

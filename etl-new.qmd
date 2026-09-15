@@ -1,11 +1,6 @@
 ---
-title: "ETL Report"
-output-file: etl_report.html
-format:
-  html:
-    toc: false
-    number-sections: false
-    embed-resources: true
+title: "SEC POC ETL"
+format: email
 execute:
   echo: false
   warning: false
@@ -206,6 +201,12 @@ kwargs = {
 oks, statuses = [], []
 ```
 
+::: {.email}
+
+::: {.subject}
+SEC POC ETL
+:::
+
 ```{python}
 #| label: run-refresh_ncit_pg
 #| error: true
@@ -297,3 +298,5 @@ if not ok:
 for name, lines in od.items():
     print(_render_log_section(name + ':', lines))
 ```
+
+:::

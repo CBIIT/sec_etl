@@ -15,6 +15,54 @@ CTS_V2_API_KEY = os.getenv('CTS_V2_API_KEY')
 header_v2_api = {"x-api-key": CTS_V2_API_KEY, "Content-Type": "application/json"}
 
 
+class Status:
+    """
+    Result object returned by ETL operations that should never raise.
+
+    `pass` and `class` are Python reserved words, so the boolean is exposed
+    as `passed` (with `failed` as its inverse). `exception` holds the caught
+    Exception instance (or None on success) and `trace` holds the formatted
+    traceback string (or None on success).
+    """
+
+    def __init__(self, passed: bool, exception: BaseException = None, trace: str = None):
+        self._passed = bool(passed)
+        self._exception = exception
+        self._trace = trace
+
+    @classmethod
+    def ok(cls) -> 'Status':
+        return cls(passed=True)
+
+    @classmethod
+    def error(cls, exc: BaseException, trace: str = None) -> 'Status':
+        return cls(passed=False, exception=exc, trace=trace or traceback.format_exc())
+
+    @property
+    def passed(self) -> bool:
+        return self._passed
+
+    @property
+    def failed(self) -> bool:
+        return not self._passed
+
+    @property
+    def exception(self) -> BaseException:
+        return self._exception
+
+    @property
+    def trace(self) -> str:
+        return self._trace
+
+    def __bool__(self) -> bool:
+        return self._passed
+
+    def __repr__(self) -> str:
+        if self._passed:
+            return 'Status(passed=True)'
+        return f'Status(passed=False, exception={self._exception!r})'
+
+
 class ApiEtlProcessor(EtlProcessor):
     def __init__(self, args=None, name=None, python_file=None):
         python_file = python_file or __file__
@@ -36,7 +84,6 @@ class ApiEtlProcessor(EtlProcessor):
         parser.add_argument('--port', action='store', type=str, required=False, default=os.environ.get('DB_PORT', '5433'))
         return parser
 
-    @etl_printer
     def get_maintypes(self, con, lead_disease):
         sql = """
         with minlevel as (
@@ -65,7 +112,6 @@ class ApiEtlProcessor(EtlProcessor):
         cur.execute(sql, [lead_disease, lead_disease])
         return cur.fetchall()
 
-    @etl_printer
     def gen_biomarker_info(self, biomarkers):
         biomarker_inc_codes = []
         biomarker_inc_names = []
@@ -95,7 +141,6 @@ class ApiEtlProcessor(EtlProcessor):
 
         return biomarker_inc_codes, biomarker_inc_names, biomarker_exc_codes, biomarker_exc_names
 
-    @etl_printer
     def insert_prior_therapies(self, db_conn, db_cur, nct_id, prior_therapies):
         if not prior_therapies:
             return
@@ -220,7 +265,9 @@ class ApiEtlProcessor(EtlProcessor):
         cur.execute('delete from trial_sites')
         cur.execute('delete from trial_unstructured_criteria')
 
-    @etl_printer
+    # Deliberately NOT @etl_printer-decorated: this runs once per trial, so
+    # decorating it floods etl_output/*.txt (and the ETL report email) with
+    # thousands of STARTED/COMPLETED lines. Stage-level methods keep the decorator.
     def process_trial_record(self, con, cur, trial):
         print('NCT ID :', trial['nct_id'])
         for site in trial['sites']:
@@ -919,6 +966,85 @@ class ApiEtlProcessor(EtlProcessor):
             con.commit()
 
     @etl_printer
+    def update_trials_sid(self, table='trials') -> Status:
+        """
+        Update the `sid` column on `trials` with a stable, sequential integer
+        derived from the ordered list of nct_ids -- mirroring the CTF ETL's
+        `simple_id` derivation in db_facade_sec.get_df_crit_initial(), where:
+
+            df_crit = DataFrame(rows ordered by nct_id)
+            df_crit["simple_id"] = list(df_crit.index.values)   # 0..N-1
+
+        The 0-based row index of an nct_id-ordered trials list is exactly
+        ROW_NUMBER() OVER (ORDER BY nct_id) - 1.
+
+        Steps
+        -----
+        1. Verify the `sid` column exists on `trials`; if not, ALTER TABLE
+           to add `sid INT`.
+        2. Assign sid = ROW_NUMBER() OVER (ORDER BY nct_id) - 1 in a single
+           UPDATE -- no JSON file, no Python-side batching.
+
+        Executes safely: any exception is caught, the transaction is rolled
+        back, the connection is closed, and a Status object is returned.
+        Never raises.
+        """
+        con = None
+        try:
+            con = psycopg2.connect(
+                database=self.args.dbname,
+                user=self.args.user,
+                host=self.args.host,
+                port=self.args.port,
+                password=self.args.password,
+            )
+            cur = con.cursor()
+
+            # 1) Ensure `sid` column exists on the target table.
+            cur.execute(
+                """
+                SELECT 1
+                  FROM information_schema.columns
+                 WHERE table_name = %s
+                   AND column_name = 'sid'
+                """,
+                (table,),
+            )
+            if cur.fetchone() is None:
+                cur.execute(f'ALTER TABLE {table} ADD COLUMN sid INT')
+                con.commit()
+
+            # 2) Assign sid = 0-based row number over (order by nct_id).
+            #    Equivalent to df_crit["simple_id"] = list(df_crit.index.values)
+            #    after `order by nct_id` in CTF's get_df_crit_initial().
+            cur.execute(
+                f"""
+                UPDATE {table} AS t
+                   SET sid = sub.sid
+                  FROM (
+                        SELECT nct_id,
+                               (ROW_NUMBER() OVER (ORDER BY nct_id))::int - 1 AS sid
+                          FROM {table}
+                       ) AS sub
+                 WHERE t.nct_id = sub.nct_id
+                """
+            )
+            con.commit()
+
+            return Status.ok()
+        except Exception as exc:
+            if con is not None:
+                try:
+                    con.rollback()
+                except Exception:
+                    pass
+            self.pre('update_trials_sid FAILED: ', exc, traceback.format_exc())
+            return Status.error(exc)
+        finally:
+            if con is not None:
+                con.close()
+
+    @etl_printer
     def process(self):
         start_time = datetime.datetime.now()
         con = None
@@ -935,7 +1061,7 @@ class ApiEtlProcessor(EtlProcessor):
             self.process_trials(con, cur)
             self.process_post_etl(con, cur, start_time)
         except Exception as exc:
-            self.pre('API ETL FAILED: ', exc, traceback.print_exc())
+            self.fail('API ETL FAILED: ', exc, traceback.format_exc())
         finally:
             if con is not None:
                 con.close()
@@ -943,6 +1069,7 @@ class ApiEtlProcessor(EtlProcessor):
 
         end_time = datetime.datetime.now()
         print('API ETL all ops completed in ', end_time - start_time)
+        return self.succeeded
 
 
 def get_safe(adict, key, default_if_none):
@@ -954,4 +1081,6 @@ if __name__ == '__main__':
     bootstrap_processor = ApiEtlProcessor(args=None, python_file=__file__)
     parser = bootstrap_processor.build_parser()
     parsed_args = parser.parse_args()
-    ApiEtlProcessor(args=parsed_args, python_file=__file__).process()
+    # Module-level `success` is what etl-new.qmd reads back out of the module
+    # namespace (runpy.run_path) to decide whether this step passed.
+    success = ApiEtlProcessor(args=parsed_args, python_file=__file__).process()
