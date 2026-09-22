@@ -8,7 +8,7 @@ import psycopg2
 import psycopg2.extras
 import requests
 
-from etl_processor import EtlProcessor, etl_printer
+from etl_processor import EtlProcessor, etl_printer, force_requested
 
 
 CTS_V2_API_KEY = os.getenv('CTS_V2_API_KEY')
@@ -77,6 +77,11 @@ class ApiEtlProcessor(EtlProcessor):
         parser = argparse.ArgumentParser(
             description='Update the specified sqlite database with information from the cancer.gov API'
         )
+        # This script has no "nothing changed, skip" path -- it rebuilds its
+        # tables every run -- so --force has nothing to bypass. It is accepted
+        # and reported so every step honours the same flag convention.
+        parser.add_argument('--force', '-f', action='store_true', required=False,
+                            default=force_requested(__file__))
         parser.add_argument('--dbname', action='store', type=str, required=False, default=os.environ.get('DB_NAME', 'sec'))
         parser.add_argument('--host', action='store', type=str, required=False, default=os.environ.get('DB_HOST', 'localhost'))
         parser.add_argument('--user', action='store', type=str, required=False, default=os.environ.get('DB_USER', 'sec'))

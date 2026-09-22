@@ -73,6 +73,18 @@ def _find_workspace_root() -> Path:
 ROOT_DIR = Path.cwd().resolve()
 OUTPUT_DIR = ROOT_DIR / "etl_output"
 
+# etl_processor lives beside this document; make sure it is importable before
+# the first chunk that needs it, not just inside _run_script's temporary path.
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+try:
+    from etl_processor import active_force_flags
+except Exception:
+    # Never let a reporting nicety take the report down.
+    def active_force_flags(_python_files):
+        return []
+
 
 @contextmanager
 def _temporary_cwd(path: Path):
@@ -454,6 +466,17 @@ if not ok:
         print(
             f"<p>&nbsp;&nbsp;{html.escape(script.removesuffix('.py') + ': ' + status)}<BR></p>"
         )
+
+# Force flags. A FORCE_* left set in Connect's Vars pane would force every
+# nightly run indefinitely -- sec_poc_classifier's force reclassifies every
+# trial -- so any flag in effect is named here rather than acting silently.
+_active_flags = active_force_flags(scripts)
+if _active_flags:
+    print(
+        "<p><b>FORCE FLAGS ACTIVE</b>: "
+        + html.escape(", ".join(_active_flags))
+        + " &mdash; steps were forced to run. Unset these unless this was intended.</p>"
+    )
 
 # Row counts. A step can pass while leaving its table untouched, so the counts
 # are the only thing in this email that shows the data actually moved.
