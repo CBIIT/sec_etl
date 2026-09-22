@@ -481,13 +481,15 @@ class ApiEtlProcessor(EtlProcessor):
             for trial in payload['data']:
                 self.process_trial_record(con, cur, trial)
 
-            cur.execute('select count(*) from trials')
-            record_count = cur.fetchone()[0]
             if len(payload['data']) < 50:
                 run = False
 
-            print('record count = ', record_count)
+            # Was: `select count(*) from trials` on every page, purely to print
+            # the running total. A full count of the table per page, and the
+            # result never affected control flow -- `run` is driven by the page
+            # size above. The page total below says the same thing for free.
             start += len(payload['data'])
+            print('trials loaded so far = ', start)
             data['from'] = start
 
     @etl_printer
@@ -646,7 +648,6 @@ class ApiEtlProcessor(EtlProcessor):
                         )
                         and tc.level = 1
                     union
-                    ALL
                     select
                         pd.top_code,
                         pd.descendant as parent,
@@ -657,7 +658,8 @@ class ApiEtlProcessor(EtlProcessor):
                         join ncit_tc_with_path tc1 on pd.descendant = tc1.parent
                         and tc1.level = 1
                     where
-                        exists (
+                        pd.level < 999
+                        and exists (
                             select
                                 dd.nci_thesaurus_concept_id
                             from
@@ -807,7 +809,6 @@ class ApiEtlProcessor(EtlProcessor):
                         )
                         and tc.level = 1
                     union
-                    ALL
                     select
                         pd.top_code,
                         pd.descendant as parent,
@@ -819,6 +820,8 @@ class ApiEtlProcessor(EtlProcessor):
                         and tc1.level = 1
                         join distinct_trial_diseases dtd1 on dtd1.nci_thesaurus_concept_id = tc1.descendant
                         and dtd1.disease_type not in ('stage', 'grade-stage')
+                    where
+                        pd.level < 999
                 ),
                 all_nodes as (
                     select
@@ -966,85 +969,6 @@ class ApiEtlProcessor(EtlProcessor):
             con.commit()
 
     @etl_printer
-    def update_trials_sid(self, table='trials') -> Status:
-        """
-        Update the `sid` column on `trials` with a stable, sequential integer
-        derived from the ordered list of nct_ids -- mirroring the CTF ETL's
-        `simple_id` derivation in db_facade_sec.get_df_crit_initial(), where:
-
-            df_crit = DataFrame(rows ordered by nct_id)
-            df_crit["simple_id"] = list(df_crit.index.values)   # 0..N-1
-
-        The 0-based row index of an nct_id-ordered trials list is exactly
-        ROW_NUMBER() OVER (ORDER BY nct_id) - 1.
-
-        Steps
-        -----
-        1. Verify the `sid` column exists on `trials`; if not, ALTER TABLE
-           to add `sid INT`.
-        2. Assign sid = ROW_NUMBER() OVER (ORDER BY nct_id) - 1 in a single
-           UPDATE -- no JSON file, no Python-side batching.
-
-        Executes safely: any exception is caught, the transaction is rolled
-        back, the connection is closed, and a Status object is returned.
-        Never raises.
-        """
-        con = None
-        try:
-            con = psycopg2.connect(
-                database=self.args.dbname,
-                user=self.args.user,
-                host=self.args.host,
-                port=self.args.port,
-                password=self.args.password,
-            )
-            cur = con.cursor()
-
-            # 1) Ensure `sid` column exists on the target table.
-            cur.execute(
-                """
-                SELECT 1
-                  FROM information_schema.columns
-                 WHERE table_name = %s
-                   AND column_name = 'sid'
-                """,
-                (table,),
-            )
-            if cur.fetchone() is None:
-                cur.execute(f'ALTER TABLE {table} ADD COLUMN sid INT')
-                con.commit()
-
-            # 2) Assign sid = 0-based row number over (order by nct_id).
-            #    Equivalent to df_crit["simple_id"] = list(df_crit.index.values)
-            #    after `order by nct_id` in CTF's get_df_crit_initial().
-            cur.execute(
-                f"""
-                UPDATE {table} AS t
-                   SET sid = sub.sid
-                  FROM (
-                        SELECT nct_id,
-                               (ROW_NUMBER() OVER (ORDER BY nct_id))::int - 1 AS sid
-                          FROM {table}
-                       ) AS sub
-                 WHERE t.nct_id = sub.nct_id
-                """
-            )
-            con.commit()
-
-            return Status.ok()
-        except Exception as exc:
-            if con is not None:
-                try:
-                    con.rollback()
-                except Exception:
-                    pass
-            self.pre('update_trials_sid FAILED: ', exc, traceback.format_exc())
-            return Status.error(exc)
-        finally:
-            if con is not None:
-                con.close()
-
-    @etl_printer
     def process(self):
         start_time = datetime.datetime.now()
         con = None
@@ -1055,6 +979,17 @@ class ApiEtlProcessor(EtlProcessor):
                 host=self.args.host,
                 port=self.args.port,
                 password=self.args.password,
+                # This connection is held open for hours and post-ETL runs
+                # single statements that send nothing over the socket for
+                # minutes at a time. Without keepalives an idle-timeout device
+                # between here and the database silently reaps the connection,
+                # which surfaces as "could not receive data from server:
+                # Connection timed out" -- and left disease_tree stale for six
+                # nights because the failure was indistinguishable from a hang.
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5,
             )
             cur = con.cursor()
             self.load_maintypes(con, cur)

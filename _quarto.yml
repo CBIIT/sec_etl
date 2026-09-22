@@ -1,4 +1,3 @@
 project:
   type: "default"
   title: "SEC POC ETL"
-  #post-render: "etl_post_render.py"

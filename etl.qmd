@@ -210,12 +210,17 @@ kwargs = {
 MIN_EXP_TRIALS = int(os.environ.get("MIN_EXP_TRIALS", "3945"))
 
 
-def _trial_count() -> Optional[int]:
-    """Row count of `trials`, or None if it cannot be read."""
-    import psycopg2
+def _connect():
+    """A psycopg2 connection, or None if one cannot be made.
 
+    The import lives inside the try: if psycopg2 is missing from the bundle an
+    ImportError here would otherwise escape the gate chunk, leaving run_nlp and
+    gate_reason undefined and taking the whole report down with it.
+    """
     try:
-        connection = psycopg2.connect(
+        import psycopg2
+
+        return psycopg2.connect(
             dbname=os.environ["DB_NAME"],
             user=os.environ["DB_USER"],
             password=os.environ["DB_PASS"],
@@ -223,6 +228,13 @@ def _trial_count() -> Optional[int]:
             port=os.environ["DB_PORT"],
         )
     except Exception:
+        return None
+
+
+def _trial_count() -> Optional[int]:
+    """Row count of `trials`, or None if it cannot be read."""
+    connection = _connect()
+    if connection is None:
         return None
 
     try:
@@ -235,7 +247,60 @@ def _trial_count() -> Optional[int]:
         connection.close()
 
 
+# Tables reported in the email. A step can "succeed" while leaving a table
+# frozen -- that is exactly how disease_tree went six nights without being
+# rebuilt while the report said nothing -- so the counts are printed every run
+# and a reader can spot a number that has stopped moving.
+REPORTED_TABLES = [
+    "trials",
+    "trial_diseases",
+    "distinct_trial_diseases",
+    "disease_tree",
+    "disease_tree_nostage",
+    "associations",
+    "ncit",
+    "ncit_tc_with_path",
+    "ncit_nlp_concepts",
+    "nlp_data_tab",
+    "candidate_criteria",
+]
+
+
+def _table_counts() -> List[Tuple[str, Optional[int]]]:
+    """(table, row count) for each reported table; count is None if unreadable."""
+    connection = _connect()
+    if connection is None:
+        return [(name, None) for name in REPORTED_TABLES]
+
+    results = []
+    try:
+        for name in REPORTED_TABLES:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(f"select count(*) from {name}")
+                    results.append((name, cursor.fetchone()[0]))
+            except Exception:
+                # One unreadable table must not cost us the other ten. The
+                # transaction is poisoned after an error, so roll back first.
+                try:
+                    connection.rollback()
+                except Exception:
+                    pass
+                results.append((name, None))
+    finally:
+        connection.close()
+    return results
+
+
 oks, statuses = [], []
+
+# Defaults for the NLP gate. The gate chunk below overwrites these. They are
+# defined here so that if that chunk ever fails, the NLP chunks and the report
+# still have values to read instead of raising NameError -- which would empty
+# the entire email.
+run_nlp = False
+nlp_skip_ok = False
+gate_reason = "the NLP gate did not run"
 ```
 
 ::: {.email}
@@ -289,7 +354,17 @@ statuses.append(_status)
 # them against `scripts`.
 trial_count = _trial_count()
 
-if trial_count is None:
+# Steps already run, by name, that reported failure. Feeding the NLP steps a
+# half-built database is how partial state spreads: api_etl_v2 can fail in
+# post-ETL having left disease_tree stale, and the NLP steps would happily
+# rebuild on top of it. An upstream failure therefore stops them.
+_failed_upstream = [scripts[i] for i, _step_ok in enumerate(oks) if not _step_ok]
+
+if _failed_upstream:
+    run_nlp = False
+    nlp_skip_ok = False          # upstream broke: a failure, not a clean skip
+    gate_reason = "upstream step(s) failed: " + ", ".join(_failed_upstream)
+elif trial_count is None:
     run_nlp = False
     nlp_skip_ok = False          # unreadable DB is a failure, not a clean skip
     gate_reason = "could not read the trial count"
@@ -341,7 +416,11 @@ statuses.append(_status)
 #| output: asis
 #| label: render-report
 
-ok = all(oks)
+# zip() below truncates silently and all([]) is True, so a chunk that raised
+# before its oks.append() would drop that step from the report AND could still
+# leave the title saying PASSED. Any length mismatch is therefore a failure.
+_complete = len(oks) == len(statuses) == len(scripts)
+ok = _complete and all(oks)
 report_title = "ETL PASSED" if ok else "ETL FAILED"
 
 od = {}
@@ -356,6 +435,15 @@ for script in scripts:
 
 print(f"<h1>{report_title}</h1>")
 
+# A step chunk that dies before recording its result leaves oks/statuses short.
+# Say so explicitly rather than quietly reporting on the steps that survived.
+if not _complete:
+    print(
+        "<p><b>REPORT INCOMPLETE</b>: "
+        f"{len(oks)} of {len(scripts)} steps recorded a result. A step failed "
+        "before it could report, so the per-step list below is truncated.</p>"
+    )
+
 # Always report the NLP gate. A skip is not a failure, so without this line a
 # run where the NLP steps never executed would look identical to a full run.
 _gate_label = "NLP steps ran" if run_nlp else "NLP steps SKIPPED"
@@ -366,6 +454,18 @@ if not ok:
         print(
             f"<p>&nbsp;&nbsp;{html.escape(script.removesuffix('.py') + ': ' + status)}<BR></p>"
         )
+
+# Row counts. A step can pass while leaving its table untouched, so the counts
+# are the only thing in this email that shows the data actually moved.
+print("<h2>Table row counts</h2>")
+print('<table cellpadding="4" style="border-collapse:collapse">')
+for _table, _count in _table_counts():
+    _shown = "UNREADABLE" if _count is None else f"{_count:,}"
+    print(
+        f'<tr><td style="border:1px solid #ccc">{html.escape(_table)}</td>'
+        f'<td style="border:1px solid #ccc;text-align:right">{html.escape(_shown)}</td></tr>'
+    )
+print("</table>")
 
 for name, lines in od.items():
     print(_render_log_section(name + ':', lines))

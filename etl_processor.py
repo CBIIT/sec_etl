@@ -31,9 +31,12 @@ def etl_printer(func):
             result = func(processor, *args, **kwargs)
         except Exception as exc:
             processor.pre(func.__name__, traceback.format_exc())
+            # FAILED, not COMPLETED. This used to print COMPLETED from a
+            # `finally:`, which put the word "COMPLETED" directly underneath
+            # every traceback -- the log read as a success at a glance.
+            processor.pre(func.__name__, 'FAILED', _etl_timestamp())
             raise exc
-        finally:
-            processor.pr(func.__name__, 'COMPLETED', _etl_timestamp())
+        processor.pr(func.__name__, 'COMPLETED', _etl_timestamp())
         return result
 
     return wrapper
