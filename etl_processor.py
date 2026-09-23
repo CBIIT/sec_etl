@@ -1,12 +1,71 @@
 from datetime import datetime
 from functools import wraps
-from os import makedirs
+from os import environ, makedirs
 from os.path import basename, dirname, join as pjoin
 import re
 import traceback
 
 
 OUTPUT_DIR = 'etl_output'
+
+# Per-script force flags. Each script's flag is FORCE_ plus its file stem
+# upper-cased: api_etl_v2.py -> FORCE_API_ETL_V2. FORCE_ALL forces every step.
+#
+# etl.qmd runs each script with runpy in this same process, so the environment
+# is visible to the scripts directly -- no argv plumbing is needed. That
+# matters because --force is a store_true flag, and _run_script builds argv as
+# key/value pairs, which cannot express a valueless flag.
+FORCE_ALL_ENV = 'FORCE_ALL'
+_TRUTHY = {'1', 'true', 't', 'yes', 'y', 'on'}
+
+
+def force_env_name(python_file):
+    """FORCE_<SCRIPT> for the given script path."""
+    return 'FORCE_' + basename(python_file).removesuffix('.py').upper()
+
+
+def _is_truthy(value):
+    try:
+        return value is not None and value.strip().lower() in _TRUTHY
+    except Exception:
+        return False
+
+
+def force_requested(python_file):
+    """True when this script's force flag, or FORCE_ALL, is set and truthy.
+
+    Returns False for anything else, and NEVER raises. This is a parser default
+    evaluated at import time in every ETL script: if it raised, the script would
+    die before doing any work. A missing variable, an empty one, an explicitly
+    falsey one ('0', 'false', 'off', 'no'), an unreadable environment, or a bad
+    python_file all mean the same thing -- do not force, run the script's normal
+    default behaviour.
+    """
+    try:
+        if _is_truthy(environ.get(force_env_name(python_file))):
+            return True
+        return _is_truthy(environ.get(FORCE_ALL_ENV))
+    except Exception:
+        return False
+
+
+def active_force_flags(python_files):
+    """Names of the force flags currently in effect, for reporting.
+
+    Never raises; returns [] if it cannot tell. This only feeds a line in the
+    report email, so it must not be able to take the report down.
+    """
+    active = []
+    try:
+        if _is_truthy(environ.get(FORCE_ALL_ENV)):
+            active.append(FORCE_ALL_ENV)
+        for python_file in python_files:
+            name = force_env_name(python_file)
+            if _is_truthy(environ.get(name)):
+                active.append(name)
+    except Exception:
+        return []
+    return active
 
 # The read-only role the SEC apps use to query ETL output. Created by
 # sec_db_setup.sh; ensure_role() re-creates it defensively if it is missing.
