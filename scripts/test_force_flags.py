@@ -42,5 +42,26 @@ check('abs path', force_requested('/a/b/sec_nlp/sec_poc_classifier.py'), False)
 os.environ['FORCE_SEC_POC_CLASSIFIER'] = '1'
 check('abs path forced', force_requested('/a/b/sec_nlp/sec_poc_classifier.py'), True)
 
+print("\n=== never raises, always defaults to False (normal behaviour runs)")
+for k in list(os.environ):
+    if k.startswith('FORCE_'): del os.environ[k]
+for label, arg in [('None', None), ('int', 123), ('empty str', ''),
+                   ('no extension', '/x/y/weird_name'), ('dict', {})]:
+    try:
+        got = force_requested(arg)
+    except Exception as exc:
+        got = f'RAISED {type(exc).__name__}'
+    check(f'force_requested({label})', got, False)
+try:
+    got = active_force_flags([None, 123, 'api_etl_v2.py'])
+except Exception as exc:
+    got = f'RAISED {type(exc).__name__}'
+check('active_force_flags(bad input)', got, [])
+
+# The real-world case: a completely clean environment, as on Connect where no
+# FORCE_ var is set in the Vars pane. Every script must run its normal path.
+check('clean env -> nothing forced', [s for s in SCRIPTS if force_requested(s)], [])
+check('clean env -> no flags reported', active_force_flags(SCRIPTS), [])
+
 print("\nRESULT:", "ALL PASS" if ok else "FAILURES PRESENT")
 sys.exit(0 if ok else 1)
