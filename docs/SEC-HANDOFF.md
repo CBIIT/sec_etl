@@ -364,10 +364,26 @@ Once §5.3–5.5 are done, routine deploys are short:
    `sec_admin/localdb/` first, or you will wipe live users (§4.4).
 3. In the Publisher panel **select the existing deployment** — never create a new one:
    `sec_poc-QK8U` · `sec_admin-BVPI` · **`sec_etl-7J7R`** · `ctsapi_for_public_use-FMV4`.
+   Fastest way in: Command Palette → **`Posit Publisher: Select Deployment`**.
+   **For sec_etl the picker shows two entries both titled `sec_etl`** and they cannot be
+   told apart by name. Pick by the **Configuration** it is bound to — it must read
+   `sec_etl-7J7R` (the other, `sec_etl-260126-22PK`, is a personal copy). Then confirm
+   with **`Posit Publisher: View Deployment`**: the URL must contain
+   `67177a19-f8eb-479e-a7de-bb5d87010bc8`. Anything else is the wrong content item.
 4. Verify the credential/server is correct for that project.
 5. Click **Deploy**.
-6. Verify via the content's **Logs** URL (§3). For sec_etl the job runs the full ETL on deploy
-   (allow ~1–1.5 h — §6.3).
+6. Verify via the content's **Logs** URL (§3). For sec_etl the render **is** the full ETL and
+   runs against the production database — allow **3+ hours** on prod (the ~1–1.5 h in §6.3
+   is a local run). Three things that look like failures but are not:
+   - "Deploying your project — waiting for server" for ~13 minutes is the Python
+     environment restore. **Do not retry**; a second deploy starts a second ETL.
+   - Publisher may end with **504 Gateway Time-out**. That is the gateway giving up on
+     Publisher's long poll, not the render failing. Check the database, not the message:
+     `n_tup_ins` on `secapp.disease_tree` leaving 0 is the proof post-ETL completed.
+   - **Never deploy within ~3 hours of 18:00 ET.** The content has a daily 18:00 schedule
+     that re-renders (= re-runs the ETL); a deploy still rendering at 18:00 means two ETLs
+     writing the same tables. Deploy in the morning, or disable the schedule first and
+     re-enable it afterwards.
 7. `git status` — **if a new `deployment-*.toml` appeared, you deployed to the wrong target**
    and just created a second piece of content. Delete the stray file, remove the accidental
    content in Connect, and redeploy against the correct deployment (this is exactly how the
