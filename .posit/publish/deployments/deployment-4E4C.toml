@@ -10,9 +10,9 @@ id = "67177a19-f8eb-479e-a7de-bb5d87010bc8"
 dashboard_url = "https://posit-connect-prod.cancer.gov/connect/#/apps/67177a19-f8eb-479e-a7de-bb5d87010bc8"
 direct_url = "https://posit-connect-prod.cancer.gov/content/67177a19-f8eb-479e-a7de-bb5d87010bc8/"
 logs_url = "https://posit-connect-prod.cancer.gov/connect/#/apps/67177a19-f8eb-479e-a7de-bb5d87010bc8/logs"
-deployed_at = "2026-09-23T20:30:19.884Z"
-bundle_id = "11055"
-bundle_url = "https://posit-connect-prod.cancer.gov/__api__/v1/content/67177a19-f8eb-479e-a7de-bb5d87010bc8/bundles/11055/download"
+deployed_at = "2026-09-23T22:36:19.659Z"
+bundle_id = "11058"
+bundle_url = "https://posit-connect-prod.cancer.gov/__api__/v1/content/67177a19-f8eb-479e-a7de-bb5d87010bc8/bundles/11058/download"
 files = [
     ".posit/publish/deployments/deployment-4E4C.toml",
     ".posit/publish/sec_etl-7J7R.toml",
@@ -40,8 +40,7 @@ files = [
 ]
 requirements = [
     "annotated-types==0.7.0",
-    "beautifulsoup4==4.14.2",
-    "blis==0.7.8",
+    "blis==0.7.11",
     "catalogue==2.0.10",
     "certifi==2025.10.5",
     "charset-normalizer==3.4.4",
@@ -150,7 +149,7 @@ engines = [
 ]
 
 [deployment_error]
-code = "deployFailed"
-message = "process exited with code 137: signal: killed"
+code = "unknown"
+message = "Unexpected response from the server (504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n</body>\r\n</html>\r\n)"
 operation = "publish"
 
