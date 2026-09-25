@@ -103,7 +103,7 @@ flags-force). Tracked template: `flags.env.example`.
 
 ## 4. Gotchas that cost time this session
 
-1. **Claude cannot deploy.** Verified exhaustively, not assumed: extension `posit.publisher-2.12.0`
+1. **Deploys cannot be scripted from this machine.** Verified exhaustively, not assumed: extension `posit.publisher-2.12.0`
    contains only JS (`dist/`, `webviews/`), no `bin/`, no executables, nothing in VS Code
    globalStorage, no `rsconnect-python`, no `publisher` on PATH. Browser automation is blocked for
    `posit-connect-prod.cancer.gov`. **A human must click Deploy.** Do not hand-roll a bundle via
@@ -127,7 +127,7 @@ flags-force). Tracked template: `flags.env.example`.
 6. **Both Publisher deployments are titled `sec_etl`.** Disambiguate by configuration name or GUID.
 7. **`FORCE_*` in Connect Vars persists** — it would force every nightly run indefinitely.
    `FORCE_SEC_POC_CLASSIFIER` alone reclassifies all ~3,900 trials nightly.
-8. **VPN/DNS from the Claude sandbox is intermittent.** `ncidb-d606-v.nci.nih.gov` and
+8. **VPN/DNS from the tooling sandbox is intermittent.** `ncidb-d606-v.nci.nih.gov` and
    `posit-connect-prod.cancer.gov` sometimes fail to resolve even while the user is on VPN.
 9. **Cameron Crouch (`crouchcd`) owns the production app**, not Matt — Matt is a collaborator with
    publish rights. That is why prod never appeared under "My Work" (that tab lists content you
