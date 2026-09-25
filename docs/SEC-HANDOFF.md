@@ -547,6 +547,47 @@ pass is the dominant cost (~50 min) and is the first place to optimize.
 Users must exist on the Connect server (first NIH SSO login, or admin provisioning) **before**
 they can be added to a content item's Access list.
 
+## 9. NCIt patient-attribute codes
+
+The NCIt concept codes used to express a patient's attributes in a search, with preferred names verified against `secapp.ncit` (2026-09-25).
+
+### Patient attributes
+
+| Code | NCIt preferred name | Set when |
+|---|---|---|
+| `C46109` | Male Gender | sex = male |
+| `C46110` | Female Gender | sex = female |
+| `C25150` | Age | age entered (months are converted to years) |
+| `C164634` | Body Height | height entered |
+| `C81328` | Body Weight | weight entered |
+| `C16358` | Body Mass Index | height and weight both entered (computed) |
+| `C105722` | ECOG Performance Status 0 | performance status = 0 |
+| `C105723` | ECOG Performance Status 1 | performance status = 1 |
+| `C105725` | ECOG Performance Status 2 | performance status = 2 |
+| `C105726` | ECOG Performance Status 3 | performance status = 3 |
+| `C105727` | ECOG Performance Status 4 | performance status = 4 |
+| `C159685` | ECOG Performance Status not Evaluated, not Provided or Available | performance status = unsure |
+| `C62634` | Chemo/immuno/hormone Therapy Regimen | had chemo/immuno = yes |
+| `C15313` | Radiation Therapy | had radiotherapy = yes |
+| `C15329` | Surgical Procedure | had surgery = yes |
+| `C15289` | Organ Transplantation | had organ transplant = yes |
+| `C141232` | Inability to Swallow Saliva | can swallow pills = yes sends `NO`; = no sends `YES` |
+| `C4015` | Metastatic Malignant Neoplasm in the Central Nervous System | CNS metastasis = yes |
+| `C15175` | Human Immunodeficiency Virus Positive | HIV positive = yes |
+| `C3097` | Hepatitis B Infection | hepatitis B = yes |
+| `C3098` | Hepatitis C Infection | hepatitis C = yes |
+| `C51948` | Leukocyte Count | white blood cell value entered |
+| `C51951` | Platelet Count | platelet value entered |
+
+### Disease modifiers
+
+| Code | NCIt preferred name | Set when |
+|---|---|---|
+| `C38155` | Recurrent Disease | recurrent = yes |
+| `C39752` | Refractory Disease | refractory = yes |
+
+Codes for selected medications, biomarkers and diseases are not fixed; they come from the user's selections.
+
 ---
 
 *Prepared for the SEC POC team transition.*
